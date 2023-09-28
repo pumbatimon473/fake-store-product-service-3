@@ -2,30 +2,30 @@ package com.demo.fakestoreproductservice3.controllers;
 
 import com.demo.fakestoreproductservice3.dtos.ProductDto;
 import com.demo.fakestoreproductservice3.dtos.RatingDto;
+import com.demo.fakestoreproductservice3.exceptions.ClientErrorException;
+import com.demo.fakestoreproductservice3.exceptions.NoProductsException;
 import com.demo.fakestoreproductservice3.models.Product;
 import com.demo.fakestoreproductservice3.services.CategoryService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
 @AllArgsConstructor
+@RequestMapping("/products")
 public class CategoryController {
     // Fields
     private CategoryService categoryService;
     private Logger log;
 
     // Behaviors
-    @GetMapping("/products/categories")
-    public ResponseEntity<List<String>> getAllCategories() {
-        ResponseEntity<List<String>> response;
+    @GetMapping("/categories")
+    public ResponseEntity<List<String>> getAllCategories() throws ClientErrorException {
         try {
             return new ResponseEntity<>(this.categoryService.getAllCategories().stream()
                     .map(category -> category.getName())
@@ -33,22 +33,24 @@ public class CategoryController {
             HttpStatus.OK);
         } catch (Exception e) {
             this.logError(e, "getAllCategories");
-            response = new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new ClientErrorException(201, "Client Error: getAllCategories");
         }
-        return response;
     }
 
-    @GetMapping("/products/category/{categoryName}")
-    public ResponseEntity<List<ProductDto>> getProductsByCategory(@PathVariable(name = "categoryName") String categoryName) {
+    @GetMapping("/category/{categoryName}")
+    public ResponseEntity<List<ProductDto>> getProductsByCategory(@PathVariable(name = "categoryName") String categoryName) throws ClientErrorException, NoProductsException {
         ResponseEntity<List<ProductDto>> response;
         try {
             response = new ResponseEntity<>(this.categoryService.getProductsByCategory(categoryName).stream()
                     .map(product -> this.mapToProductDto(product))
                     .collect(Collectors.toList()),
             HttpStatus.OK);
+            if (response.getBody().size() == 0) throw new NoProductsException("No products are available.");
+        } catch (NoProductsException e) {
+            throw e;
         } catch (Exception e) {
             this.logError(e, "getProductsByCategory");
-            response = new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new ClientErrorException(202, "Client Error: getProductsByCategory");
         }
         return response;
     }

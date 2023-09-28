@@ -1,7 +1,11 @@
 package com.demo.fakestoreproductservice3.controllers;
 
+import com.demo.fakestoreproductservice3.dtos.ErrorDto;
 import com.demo.fakestoreproductservice3.dtos.ProductDto;
 import com.demo.fakestoreproductservice3.dtos.RatingDto;
+import com.demo.fakestoreproductservice3.exceptions.ClientErrorException;
+import com.demo.fakestoreproductservice3.exceptions.DeleteErrorException;
+import com.demo.fakestoreproductservice3.exceptions.ProductNotFoundException;
 import com.demo.fakestoreproductservice3.models.Category;
 import com.demo.fakestoreproductservice3.models.Product;
 import com.demo.fakestoreproductservice3.services.ProductService;
@@ -12,18 +16,20 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
 @AllArgsConstructor
+@RequestMapping("/products")
 public class ProductController {
     // Fields
     private ProductService productService;
     private Logger log;
 
     // Behaviors
-    @GetMapping("/products")
-    public ResponseEntity<List<ProductDto>> getAllProducts() {
+    @GetMapping
+    public ResponseEntity<List<ProductDto>> getAllProducts() throws ClientErrorException {
         ResponseEntity<List<ProductDto>> response;
         try {
             response = new ResponseEntity<>(this.productService.getAllProducts().stream()
@@ -32,76 +38,90 @@ public class ProductController {
                     HttpStatus.OK);
         } catch (Exception e) {
             this.logError(e, "getAllProducts");
-            response = new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new ClientErrorException(101, "Client Error: getAllProducts");
         }
         return response;
     }
 
-    @GetMapping("/products/{id}")
-    public ResponseEntity<ProductDto> getSingleProduct(@PathVariable(name = "id") Long id) {
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductDto> getSingleProduct(@PathVariable(name = "id") Long id) throws ProductNotFoundException, ClientErrorException {
         ResponseEntity<ProductDto> response;
         try {
-            response = this.productService.getSingleProduct(id)
-                    .map(product -> new ResponseEntity<>(this.mapToProductDto(product), HttpStatus.OK))
-                    .orElse(new ResponseEntity<>(null, HttpStatus.NOT_FOUND));
+            Optional<ProductDto> productDtoOptional = this.productService.getSingleProduct(id)
+                    .map(product -> this.mapToProductDto(product));
+            if (productDtoOptional.isEmpty()) throw new ProductNotFoundException("Product with id " + id + " does not exist!");
+            response = new ResponseEntity<>(productDtoOptional.get(), HttpStatus.OK);
+        } catch (ProductNotFoundException e) {
+            throw e;
         } catch (Exception e) {
             this.logError(e, "getSingleProduct");
-            response = new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new ClientErrorException(102, "Client Error: getSingleProduct");
         }
         return response;
     }
 
-    @PostMapping("/products")
-    public ResponseEntity<ProductDto> addProduct(@RequestBody ProductDto productDto) {
+    @PostMapping
+    public ResponseEntity<ProductDto> addProduct(@RequestBody ProductDto productDto) throws ClientErrorException {
         ResponseEntity<ProductDto> response;
         try {
             Product product = this.buildProduct(productDto);
             response = new ResponseEntity<>(this.mapToProductDto(this.productService.addProduct(product)), HttpStatus.CREATED);
         } catch (Exception e) {
             this.logError(e, "addProduct");
-            response = new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new ClientErrorException(103, "Client Error: addProduct");
         }
         return response;
     }
 
-    @PutMapping("/products/{id}")
-    public ResponseEntity<ProductDto> replaceProduct(@PathVariable(name = "id") Long id, @RequestBody ProductDto productDto) {
+    @PutMapping("/{id}")
+    public ResponseEntity<ProductDto> replaceProduct(@PathVariable(name = "id") Long id, @RequestBody ProductDto productDto) throws ClientErrorException {
         ResponseEntity<ProductDto> response;
         try {
             Product product = this.buildProduct(productDto);
             response = new ResponseEntity<>(this.mapToProductDto(this.productService.replaceProduct(id, product)), HttpStatus.OK);
         } catch (Exception e) {
             this.logError(e, "replaceProduct");
-            response = new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new ClientErrorException(104, "Client Error: replaceProduct");
         }
         return response;
     }
 
-    @PatchMapping("/products/{id}")
-    public ResponseEntity<ProductDto> updateProduct(@PathVariable(name = "id") Long id, @RequestBody ProductDto productDto) {
+    @PatchMapping("/{id}")
+    public ResponseEntity<ProductDto> updateProduct(@PathVariable(name = "id") Long id, @RequestBody ProductDto productDto) throws ClientErrorException {
         ResponseEntity<ProductDto> response;
         try {
             Product product = this.buildProduct(productDto);
             response = new ResponseEntity<>(this.mapToProductDto(this.productService.updateProduct(id, product)), HttpStatus.OK);
         } catch (Exception e) {
             this.logError(e, "updateProduct");
-            response = new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new ClientErrorException(105, "Client Error: updateProduct");
         }
         return response;
     }
 
-    @DeleteMapping("/products/{id}")
-    public ResponseEntity<ProductDto> removeProduct(@PathVariable(name = "id") Long id) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ProductDto> removeProduct(@PathVariable(name = "id") Long id) throws DeleteErrorException, ClientErrorException {
         ResponseEntity<ProductDto> response;
         try {
-            response = this.productService.removeProduct(id)
-                    .map(product -> new ResponseEntity<>(this.mapToProductDto(product), HttpStatus.OK))
-                    .orElse(new ResponseEntity<>(null, HttpStatus.NOT_FOUND));
+            Optional<ProductDto> productDtoOptional = this.productService.removeProduct(id)
+                    .map(product -> this.mapToProductDto(product));
+            if (productDtoOptional.isEmpty()) throw new DeleteErrorException("Product with id " + id + " does not exist.");
+            response = new ResponseEntity<>(productDtoOptional.get(), HttpStatus.OK);
+        } catch (DeleteErrorException e) {
+            throw e;
         } catch (Exception e) {
             this.logError(e, "removeProduct");
-            response = new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new ClientErrorException(106, "Client Error: removeProduct");
         }
         return response;
+    }
+
+    /** Error Handling: 1st Method
+     * Exception Handler at the controller level
+     */
+    @ExceptionHandler(DeleteErrorException.class)
+    private ResponseEntity<ErrorDto> handleDeleteErrorException(Exception e) {
+        return new ResponseEntity<>(new ErrorDto(null, e.getMessage()), HttpStatus.NOT_FOUND);
     }
 
     private Product buildProduct(ProductDto productDto) {

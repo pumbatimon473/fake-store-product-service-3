@@ -1,17 +1,14 @@
 package com.demo.fakestoreproductservice3.services.proxy;
 
-import com.demo.fakestoreproductservice3.config.Config;
-import com.demo.fakestoreproductservice3.domain.FakeStoreProductDto;
+import com.demo.fakestoreproductservice3.client.fakestoreapi.FakeStoreCategoryClient;
+import com.demo.fakestoreproductservice3.client.fakestoreapi.domain.FakeStoreProductDto;
 import com.demo.fakestoreproductservice3.models.Category;
 import com.demo.fakestoreproductservice3.models.Product;
 import com.demo.fakestoreproductservice3.models.Rating;
 import com.demo.fakestoreproductservice3.services.CategoryService;
 import lombok.AllArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,14 +16,14 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class CategoryServiceProxyImp implements CategoryService {
     // Fields
-    private RestTemplate restTemplate;
+    private FakeStoreCategoryClient fakeStoreApiClient;
 
     // Behaviors
     @Override
     public List<Category> getAllCategories() {
-        ResponseEntity<String[]> response = this.restTemplate.getForEntity(Config.FAKE_STORE_CATEGORIES, String[].class);
-        if (response.hasBody())
-            return Arrays.stream(response.getBody())
+        List<String> categoriesList = this.fakeStoreApiClient.getAllCategories();
+        if (categoriesList != null)
+            return categoriesList.stream()
                     .map(category -> new Category(category))
                     .collect(Collectors.toList());
         return null;
@@ -34,9 +31,9 @@ public class CategoryServiceProxyImp implements CategoryService {
 
     @Override
     public List<Product> getProductsByCategory(String categoryName) {
-        ResponseEntity<FakeStoreProductDto[]> response = this.restTemplate.getForEntity(Config.FAKE_STORE_PRODUCTS_BY_CATEGORY, FakeStoreProductDto[].class, categoryName);
-        if (response.hasBody())
-            return Arrays.stream(response.getBody())
+        List<FakeStoreProductDto> fakeStoreProductDtoList = this.fakeStoreApiClient.getProductsByCategory(categoryName);
+        if (fakeStoreProductDtoList != null)
+            return fakeStoreProductDtoList.stream()
                     .map(fakeStoreProductDto -> this.mapToProduct(fakeStoreProductDto))
                     .collect(Collectors.toList());
         return null;

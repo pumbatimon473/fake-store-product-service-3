@@ -1,4 +1,4 @@
-package com.demo.fakestoreproductservice3.domain;
+package com.demo.fakestoreproductservice3.client.fakestoreapi.domain;
 
 import lombok.Getter;
 import lombok.Setter;
